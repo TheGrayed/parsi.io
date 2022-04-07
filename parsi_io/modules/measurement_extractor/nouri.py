@@ -1,9 +1,20 @@
 import pandas as pd
 import numpy as np
+import re
+from parsi_io.modules.number_extractor import NumberExtractor
+
 
 #loading units data and replacing "NaN" values with 0
 units_dataframe = pd.read_csv("Units.csv",header=None)
 units_dataframe = units_dataframe.replace(np.nan, 0)
+
+# loading pre-unit words which are used in "pre-unit word + [decimal frachtion] + unit" pattern.
+preunits_dataframe = pd.read_csv("PreUnitWords.csv",header=None)
+preunits_dataframe = preunits_dataframe.transpose()
+
+# loading pre-unit words which are used in "pre-unit word + [decimal frachtion] + unit" pattern.
+decimal_fractions_dataframe = pd.read_csv("DecimalFractions.csv",header=None)
+decimal_fractions_dataframe = decimal_fractions_dataframe.transpose()
 
 
 #creating a dictionary of units which key corresponds quantity name and value corresponds list of units related to that quantity
@@ -62,11 +73,8 @@ def join_all_units_with_or():
 
 
 """
-This minimal code detects quantities which follow "amount + unit" pattern.
+A function that detects quantities which follow "amount + unit" pattern.
 """
-
-import re
-from parsi_io.modules.number_extractor import NumberExtractor
 
 extractor = NumberExtractor()
 def match_amount_unit_pattern (input_str):
@@ -91,11 +99,43 @@ def match_amount_unit_pattern (input_str):
         
     return output
 
+
+"""
+A function that detects quantities which follow "pre-unit words such as "چند" + 
+                                                [decimal fractions (ده-صد-هزار و ...)] + 
+                                                unit" pattern.
+"""
+def match_preunit_decimal_unit_pattern(input_str):
+    units_joined = join_all_units_with_or()
+    preunits_list = preunits_dataframe.values.tolist()
+    preunits_joined = "|".join(preunits_list[0])
+    
+    decimal_fractions_list = decimal_fractions_dataframe.values.tolist()
+    decimal_fractions_joined = "|".join(decimal_fractions_list[0])
+    all_matches = re.findall(f'({preunits_joined})+\s*({decimal_fractions_joined})?\s*({units_joined})+',input_str)
+    i = 0
+    output = [{} for sub in range(len(all_matches))]
+    for match in re.finditer(f'({preunits_joined})+\s*({decimal_fractions_joined})?\s*({units_joined})+',input_str):
+        output[i]['type'] = get_quantity_type(all_matches[i][2])
+        output[i]['amount'] = ''
+        output[i]['unit'] = all_matches[i][2]
+        output[i]['marker'] = match.group()
+        output[i]['span'] = match.span()
+        i += 1
+        
+    return output
+
+
+# amount + unit examples:
 input1 = "علی سه متر پارچه و دو کیلوگرم آرد خرید و یک ساعت صبر کرد."
 input2 = "2 Gb"
-
 print(match_amount_unit_pattern(input1))
 print(match_amount_unit_pattern(input2))
+
+# pre-unit word + [decimal fraction] + unit examples:
+input3 = "چند صد هزار تن گوشت وارداتی"
+print(match_preunit_decimal_unit_pattern(input3))
+
 
 #bug: the first pattern gets mathced. not the longest.
 print(match_amount_unit_pattern("دو فوت بر ثانیه"))
