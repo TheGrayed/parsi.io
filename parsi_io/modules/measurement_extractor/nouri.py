@@ -8,9 +8,11 @@ from parsi_io.modules.number_extractor import NumberExtractor
 units_dataframe = pd.read_csv("Units.csv",header=None)
 units_dataframe = units_dataframe.replace(np.nan, 0)
 
+
 # loading pre-unit words which are used in "pre-unit word + [decimal frachtion] + unit" pattern.
 preunits_dataframe = pd.read_csv("PreUnitWords.csv",header=None)
 preunits_dataframe = preunits_dataframe.transpose()
+
 
 # loading pre-unit words which are used in "pre-unit word + [decimal frachtion] + unit" pattern.
 decimal_fractions_dataframe = pd.read_csv("DecimalFractions.csv",header=None)
@@ -25,6 +27,14 @@ for index, row in units_dataframe.iterrows():
     #removing 0 values
     quantity_units = list(filter(lambda a: a != 0, quantity_units))
     units_dict [qunantity_name] = quantity_units
+
+
+#joining all units sorted by length in descending order
+all_units = []
+for key, value in units_dict.items():
+    all_units += value
+sorted_units = sorted(all_units, key=len, reverse = True)
+sorted_units_joined = "|".join(sorted_units)
 
 
 #a dictionary to map qunatity's name from english to farsi
@@ -53,7 +63,7 @@ quantity_name_translator = {
 
 
 
-#a function that gets the unit and returns corresponding quantity type in persian
+# a function that gets the unit and returns corresponding quantity type in persian
 def get_quantity_type(unit):
     for key, value in units_dict.items():
         if unit in value:
@@ -61,8 +71,8 @@ def get_quantity_type(unit):
     return 0
 
 
-
-#a function that joins all units with or ("|") 
+# We don't need this function anymore.
+# a function that joins all units with or ("|") 
 def join_all_units_with_or():
     units_joined = ""
     for key, value in units_dict.items():
@@ -83,13 +93,11 @@ def match_amount_unit_pattern (input_str):
     for value in values:
         phrase_amount_dict[value['phrase']] = value['value'] 
     phrases_joined = "|".join(phrase_amount_dict.keys())
-    
-    units_joined = join_all_units_with_or()
-    
-    all_matches = re.findall(f'({phrases_joined})+\s*({units_joined})+',input_str)
+        
+    all_matches = re.findall(f'({phrases_joined})+\s*({sorted_units_joined})+',input_str)
     i = 0
     output = [{} for sub in range(len(all_matches))]
-    for match in re.finditer(f'({phrases_joined})+\s*({units_joined})+',input_str):
+    for match in re.finditer(f'({phrases_joined})+\s*({sorted_units_joined})+',input_str):
         output[i]['type'] = get_quantity_type(all_matches[i][1])
         output[i]['amount'] = phrase_amount_dict[all_matches[i][0]]
         output[i]['unit'] = all_matches[i][1]
@@ -137,6 +145,6 @@ input3 = "چند صد هزار تن گوشت وارداتی"
 print(match_preunit_decimal_unit_pattern(input3))
 
 
-#bug: the first pattern gets mathced. not the longest.
+#bug solved:
 print(match_amount_unit_pattern("دو فوت بر ثانیه"))
 
